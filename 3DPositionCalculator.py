@@ -1,101 +1,90 @@
-import time
-import serial
-import cv2
-import os
-import threading
+import numpy as np
+from PIL import Image
+import matplotlib.pyplot as plt
+
+COLOUR_THRESHOLD = 250
+SIZE_THRESHOLD = 1
+
+ignore_list = set([7])
+
+def get_position(image_index):
+    directions = [0, 90, 180, 270]
+    centers = []
+
+    for i, d in enumerate(directions):
+        filename = f"Output/{d}/image{image_index}.png"
+        im = Image.open(filename)
+        img = im.load()
+
+        (width, height) = im.size
+
+        gray_scale = np.zeros((height, width))
+
+        for x in range(width):
+            for y in range(height):
+                c = img[(x, y)]
+                weight = c[0]/3 + c[1]/2 + c[2]/3
+                gray_scale[y, x] = weight
+
+        data = gray_scale >= COLOUR_THRESHOLD
+        sum = np.sum(data)
+
+        data = data / np.sum(np.sum(data))
+        dx = np.sum(data, 0)
+        dy = np.sum(data, 1)
+
+        cx = np.sum(dx * np.arange(width))
+        cy = np.sum(dy * np.arange(height))
 
 
-"""
-on = True;
-while True:
-    if on:
-        ser.write(bytes("OFF", "UTF-8"))
-        # print(ser.readline());
-        # print(ser.readline());
-        print("Turn Off")
-    else:
-        ser.write(bytes("ON", "UTF-8"))
-        # print(ser.readline());
-        # print(ser.readline());
-        print("Turn On")
-    on = not on
-    time.sleep(1)
-"""
+        # fig,ax = plt.subplots()
+        # center = plt.Circle((cx, cy), 2.0, color='r')
 
-files = ["Output", "Output/0", "Output/90", "Output/180", "Output/270"]
+        # plt.imshow(gray_scale)
+        # ax.add_patch(center)
+        # plt.show()
 
-for file in files:
-    if not os.path.exists(file):
-            os.makedirs(file)
+        cx -= width / 2
 
-cam_port = -1
-cam = cv2.VideoCapture(cam_port)
+        if sum >= SIZE_THRESHOLD:
+            x = 0
+            y = cy
+            z = 0
+            if i % 2 == 0:
+                x = cx * (1 if i == 0 else -1)
+            else:
+                z = cx * (1 if i == 1 else -1)
 
-class TakeCameraLatestPictureThread(threading.Thread):
-    def __init__(self, camera):
-        self.camera = camera
-        self.frame = None
-        self.ret = False
-        super().__init__()
-        # Start thread
-        self.canRun = True
-        self.start()
-
-    def run(self):
-        while self.canRun:
-            self.ret, self.frame = self.camera.read()
-
-latest_picture = TakeCameraLatestPictureThread(cam)
-
-ser = serial.Serial("/dev/ttyUSB0")
-ser.baudrate=115200
-# ser.timeout=5
-
-currentRotation = 0
-currentImage = 0
-
-MSG_RESET = bytes("R", "UTF-8")
-MSG_NEXT = bytes("N", "UTF-8")
-
-ser.write(MSG_RESET)
-print(ser.read(1))
-while True:
-    count = 0
-    print("NEXT")
-    ser.write(MSG_NEXT)
-
-    msg = ser.read(1)
-    print(msg)
-    output = msg.decode("UTF-8")
-    print(f"OUTPUT: {output.strip()}")
-    try:
-        code = output[0]
-        print(f"CODE: {code}")
-    except Exception:
-        continue
-
-    if code == 'S':
-        # result, image = cam.read()
-        while not latest_picture.ret:
-            time.sleep(0.01)
-        time.sleep(0.2)
-        if latest_picture.ret:
-            cv2.imwrite(f"Output/{currentRotation}/image{currentImage}.png", latest_picture.frame)
+            centers.append((x, y, z))
         else:
-            print("Failed to take picture")
-            exit()
-        print(f"Finished {currentRotation}/image{currentImage}.png")
-        currentImage += 1
-        time.sleep(0.5)
-    elif code == 'F':
-        ser.write(MSG_RESET)
-        ser.read(1)
-        print("Please rotate the tree")
-        input("PRESS ENTER WHEN DONE")
-        currentRotation += 90
-        currentImage = 0
+            centers.append((None, None, None))
 
-    if (currentRotation == 360):
-        break
+    print(f"{image_index}: {centers}")
 
-latest_picture.canRun = False
+    true_x = np.mean([p[0] for i, p in enumerate(centers) if i % 2 == 0 and not p[0] is None])
+    true_y = height - np.mean([p[1] for p in centers if not p[1] is None])
+    true_z = np.mean([p[2] for i, p in enumerate(centers) if i % 2 == 1 and not p[2] is None])
+
+    print(f"Finished {image_index}")
+    return (true_x, true_y, true_z)
+
+
+data = [get_position(x) for x in range(10) if not x in ignore_list]
+print(data)
+
+xs = [p[0] for p in data]
+ys = [p[1] for p in data]
+zs = [p[2] for p in data]
+
+fig = plt.figure()
+ax = fig.add_subplot(projection='3d')
+
+ax.scatter(xs, zs, ys)
+ax.set_xlabel('X Label')
+ax.set_ylabel('Y Label')
+ax.set_zlabel('Z Label')
+
+ax.set_xlim([-300, 300])
+ax.set_ylim([300, -300])
+ax.set_zlim([0, 480])
+plt.show()
