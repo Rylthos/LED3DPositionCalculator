@@ -37,14 +37,6 @@ def get_position(image_index):
         cx = np.sum(dx * np.arange(width))
         cy = np.sum(dy * np.arange(height))
 
-
-        # fig,ax = plt.subplots()
-        # center = plt.Circle((cx, cy), 2.0, color='r')
-
-        # plt.imshow(gray_scale)
-        # ax.add_patch(center)
-        # plt.show()
-
         cx -= width / 2
 
         if sum >= SIZE_THRESHOLD:
@@ -72,14 +64,17 @@ def get_position(image_index):
 
 data = [(x, get_position(x)) for x in range(LED_COUNT) if not x in ignore_list]
 
+id = np.array([p[0] for p in data])
+xs = np.array([p[1][0] for p in data])
+ys = np.array([p[1][1] for p in data])
+zs = np.array([p[1][2] for p in data])
+
+y_offset = np.min(ys)
+ys -= y_offset
 
 with open("Output.pixels", "w") as file:
-    for (id, point) in data:
-        file.write(f"{id}: {point[0]} {point[1]} {point[2]}\n")
-
-xs = [p[1][0] for p in data]
-ys = [p[1][1] for p in data]
-zs = [p[1][2] for p in data]
+    for (id, x, y, z) in zip(id, xs, ys, zs):
+        file.write(f"{id}: {x} {y} {z}\n")
 
 fig = plt.figure()
 ax = fig.add_subplot(projection='3d')
