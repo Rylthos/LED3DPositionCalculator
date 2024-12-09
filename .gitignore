@@ -1,4 +1,8 @@
 **/.cache/*
+**/.direnv/*
+**/.envrc
 
 **/*.png
 *.pixels
+
+LEDController/target/*
