@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 
 COLOUR_THRESHOLD = 250
 SIZE_THRESHOLD = 1
+LED_COUNT = 10
 
 ignore_list = set([7])
 
@@ -69,12 +70,16 @@ def get_position(image_index):
     return (true_x, true_y, true_z)
 
 
-data = [get_position(x) for x in range(10) if not x in ignore_list]
-print(data)
+data = [(x, get_position(x)) for x in range(LED_COUNT) if not x in ignore_list]
 
-xs = [p[0] for p in data]
-ys = [p[1] for p in data]
-zs = [p[2] for p in data]
+
+with open("Output.pixels", "w") as file:
+    for (id, point) in data:
+        file.write(f"{id}: {point[0]} {point[1]} {point[2]}\n")
+
+xs = [p[1][0] for p in data]
+ys = [p[1][1] for p in data]
+zs = [p[1][2] for p in data]
 
 fig = plt.figure()
 ax = fig.add_subplot(projection='3d')
@@ -84,7 +89,7 @@ ax.set_xlabel('X Label')
 ax.set_ylabel('Y Label')
 ax.set_zlabel('Z Label')
 
-ax.set_xlim([-300, 300])
-ax.set_ylim([300, -300])
+ax.set_xlim([-320, 320])
+ax.set_ylim([320, -320])
 ax.set_zlim([0, 480])
 plt.show()

@@ -22,16 +22,17 @@ class TakeCameraLatestPictureThread(threading.Thread):
         # Start thread
         self.canRun = True
         self.start()
+        self.current_id = 0
 
     def run(self):
         while self.canRun:
             self.ret, self.frame = self.camera.read()
+            self.current_id += 1
 
 latest_picture = TakeCameraLatestPictureThread(cam)
 
 ser = serial.Serial("/dev/ttyUSB0")
 ser.baudrate=115200
-# ser.timeout=5
 
 currentRotation = 0
 currentImage = 0
@@ -39,8 +40,6 @@ currentImage = 0
 MSG_RESET = bytes("R", "UTF-8")
 MSG_NEXT = bytes("N", "UTF-8")
 
-ser.write(MSG_RESET)
-print(ser.read(1))
 while True:
     count = 0
     print("NEXT")
@@ -57,18 +56,17 @@ while True:
         continue
 
     if code == 'S':
-        # result, image = cam.read()
-        while not latest_picture.ret:
+        current_count = latest_picture.current_id
+        diff = latest_picture.current_id - current_count
+        while (diff < 3): ## Ensure 3 pictures taken before we save it
+            diff = latest_picture.current_id - current_count
             time.sleep(0.01)
-        time.sleep(0.2)
-        if latest_picture.ret:
-            cv2.imwrite(f"Output/{currentRotation}/image{currentImage}.png", latest_picture.frame)
-        else:
-            print("Failed to take picture")
-            exit()
+
+        cv2.imwrite(f"Output/{currentRotation}/image{currentImage}.png", latest_picture.frame)
+
         print(f"Finished {currentRotation}/image{currentImage}.png")
         currentImage += 1
-        time.sleep(0.5)
+        time.sleep(0.2)
     elif code == 'F':
         ser.write(MSG_RESET)
         ser.read(1)
