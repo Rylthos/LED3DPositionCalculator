@@ -34,6 +34,10 @@ impl PixelController {
         controller
     }
 
+    pub fn get_num_pixels(&self) -> usize {
+        self.pixels.len()
+    }
+
     pub fn read_pixels_from_file(&mut self, file_name: &str) {
         let path = Path::new(file_name);
         let display = path.display();
@@ -69,7 +73,7 @@ impl PixelController {
     pub fn transmit(&mut self, conn: &mut connection::DDPConnection) {
         let values = self.pixels_to_arr();
 
-        println!("Transmitting: {:?}", self.pixels);
+        // println!("Transmitting: {:?}", self.pixels);
         let temp = conn.write(values.as_slice());
 
         if temp.is_err() {
