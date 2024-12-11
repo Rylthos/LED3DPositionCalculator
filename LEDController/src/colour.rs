@@ -6,6 +6,10 @@ pub struct Colour {
 }
 
 impl Colour {
+    pub fn new(r: u8, g: u8, b: u8) -> Colour {
+        Colour { r, g, b }
+    }
+
     pub fn lerp(c1: Colour, c2: Colour, t: f32) -> Colour {
         let t1 = 1. - t;
         let t2 = t;

@@ -1,4 +1,5 @@
 use crate::colour::Colour;
+use crate::effect::Effect;
 use crate::vec3::Vec3;
 
 use ddp_rs::connection;
@@ -18,11 +19,15 @@ struct Pixel {
 #[derive(Debug)]
 pub struct PixelController {
     pixels: Vec<Pixel>,
+    effect: Effect,
 }
 
 impl PixelController {
     pub fn new(num_pixels: usize) -> PixelController {
-        let mut controller = PixelController { pixels: Vec::new() };
+        let mut controller = PixelController {
+            pixels: Vec::new(),
+            effect: Effect::default_solid(),
+        };
 
         controller.pixels.resize(
             num_pixels,
@@ -36,6 +41,18 @@ impl PixelController {
 
     pub fn get_num_pixels(&self) -> usize {
         self.pixels.len()
+    }
+
+    pub fn get_current_effect(&self) -> Effect {
+        self.effect
+    }
+
+    pub fn next_effect(&mut self) {
+        self.effect = Effect::change_effect(self.effect, 1);
+    }
+
+    pub fn prev_effect(&mut self) {
+        self.effect = Effect::change_effect(self.effect, -1);
     }
 
     pub fn read_pixels_from_file(&mut self, file_name: &str) {
@@ -70,7 +87,7 @@ impl PixelController {
         }
     }
 
-    pub fn transmit(&mut self, conn: &mut connection::DDPConnection) {
+    pub fn transmit(&self, conn: &mut connection::DDPConnection) {
         let values = self.pixels_to_arr();
 
         // println!("Transmitting: {:?}", self.pixels);
@@ -81,7 +98,15 @@ impl PixelController {
         }
     }
 
-    fn pixels_to_arr(&mut self) -> Vec<u8> {
+    pub fn update(&mut self, delta: f32) {
+        match self.effect {
+            Effect::SolidColour(c) => self.solid_colour(c),
+            Effect::Plane(p, n, c1, c2, d) => self.plane(p, n, c1, c2, d),
+            _ => (),
+        }
+    }
+
+    fn pixels_to_arr(&self) -> Vec<u8> {
         let mut pixel_values: Vec<u8> = Vec::new();
         for p in self.pixels.clone() {
             pixel_values.push(p.colour.r);
@@ -91,13 +116,13 @@ impl PixelController {
         pixel_values
     }
 
-    pub fn solid_colour(&mut self, colour: Colour) {
+    fn solid_colour(&mut self, colour: Colour) {
         for pixel in self.pixels.iter_mut() {
             pixel.colour = colour;
         }
     }
 
-    pub fn plane(&mut self, pos: Vec3, normal: Vec3, distance_coef: f32) {
+    fn plane(&mut self, pos: Vec3, normal: Vec3, c1: Colour, c2: Colour, distance_coef: f32) {
         for pixel in self.pixels.iter_mut() {
             let new_position = Vec3::sub(pixel.position, pos);
             let mut distance = Vec3::dot(new_position, normal).abs() / Vec3::mag(normal);
@@ -111,12 +136,6 @@ impl PixelController {
             distance /= distance_coef;
             distance = ((distance + 1.) / 2.).clamp(0., 1.);
 
-            let c1: Colour = Colour { r: 0, g: 0, b: 0 };
-            let c2: Colour = Colour {
-                r: 255,
-                g: 255,
-                b: 255,
-            };
             pixel.colour = Colour::lerp(c1, c2, distance);
         }
     }

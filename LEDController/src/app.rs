@@ -14,42 +14,53 @@ use ratatui::{
     DefaultTerminal, Frame,
 };
 
-use std::sync::Arc;
-use std::sync::Mutex;
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc, RwLock,
+};
 use std::thread;
 
-use crate::PixelController;
+use crate::colour::Colour;
+use crate::led_controller::PixelController;
 
 #[derive(Debug)]
 pub struct App {
-    conn: Arc<Mutex<connection::DDPConnection>>,
-    controller: Arc<Mutex<PixelController>>,
-    thread_exit: Arc<Mutex<bool>>,
-    transmit_time: u64,
-    // controller_handle: thread::JoinHandle<()>,
+    conn: Arc<RwLock<connection::DDPConnection>>,
+    controller: Arc<RwLock<PixelController>>,
+    thread_alive: Arc<AtomicBool>,
+    transmit_handle: Option<thread::JoinHandle<()>>,
+    controller_handle: Option<thread::JoinHandle<()>>,
+    update_ms: u64,
     exit: bool,
 }
 
 impl App {
-    pub fn new(ip: &str, pixel_count: usize, transmit_time: u64) -> App {
+    pub fn new(ip: &str, pixel_count: usize, update_ms: u64) -> App {
+        let conn = Arc::new(RwLock::new(
+            connection::DDPConnection::try_new(
+                ip,
+                protocol::PixelConfig::default(),
+                protocol::ID::Default,
+                std::net::UdpSocket::bind("0.0.0.0:4048").unwrap(),
+            )
+            .unwrap(),
+        ));
+
+        let controller = Arc::new(RwLock::new(PixelController::new(pixel_count)));
+
         App {
-            conn: Arc::new(Mutex::new(
-                connection::DDPConnection::try_new(
-                    ip,
-                    protocol::PixelConfig::default(),
-                    protocol::ID::Default,
-                    std::net::UdpSocket::bind("0.0.0.0:4048").unwrap(),
-                )
-                .unwrap(),
-            )),
-            controller: Arc::new(Mutex::new(PixelController::new(pixel_count))),
-            thread_exit: Arc::new(Mutex::new(false)),
-            transmit_time,
+            conn,
+            controller,
+            thread_alive: Arc::new(AtomicBool::new(false)),
+            transmit_handle: None,
+            controller_handle: None,
+            update_ms,
             exit: false,
         }
     }
 
     pub fn run(&mut self, terminal: &mut DefaultTerminal) -> io::Result<()> {
+        self.start_transmit_thread();
         while !self.exit {
             terminal.draw(|frame| self.draw(frame))?;
             self.handle_events()?;
@@ -74,46 +85,72 @@ impl App {
     fn handle_key_event(&mut self, key_event: KeyEvent) {
         match key_event.code {
             KeyCode::Char('q') => self.exit(),
-            KeyCode::Left => self.decrement_counter(),
-            KeyCode::Right => self.increment_counter(),
+            KeyCode::Left => {
+                let mut controller = self.controller.write().unwrap();
+                controller.prev_effect();
+            }
+            KeyCode::Right => {
+                let mut controller = self.controller.write().unwrap();
+                controller.next_effect();
+            }
             _ => {}
         }
     }
 
-    fn start_transmit(&mut self) {
-        let thread_conn = self.conn.clone();
-        let thread_controller = self.controller.clone();
-        let thread_exit = self.thread_exit.clone();
-        let transmit_time = self.transmit_time;
+    fn start_transmit_thread(&mut self) {
+        self.thread_alive.store(true, Ordering::SeqCst);
 
-        thread::spawn(move || loop {
-            if let Ok(running) = thread_exit.lock() {
-                if !(*running) {
-                    break;
+        let transmit_alive = self.thread_alive.clone();
+        let transmit_controller = self.controller.clone();
+        let transmit_conn = self.conn.clone();
+
+        let transmit_ms = self.update_ms;
+
+        self.transmit_handle = Some(thread::spawn(move || {
+            while transmit_alive.load(Ordering::SeqCst) {
+                {
+                    let controller = transmit_controller.read().unwrap();
+                    let mut connection = transmit_conn.write().unwrap();
+
+                    controller.transmit(&mut connection);
                 }
+                thread::sleep(std::time::Duration::from_millis(transmit_ms));
             }
+        }));
 
-            if let Ok(mut controller) = thread_controller.lock() {
-                if let Ok(mut conn) = thread_conn.lock() {
-                    controller.transmit(&mut conn);
+        let controller_alive = self.thread_alive.clone();
+        let controller = self.controller.clone();
+
+        let update_time = self.update_ms;
+
+        self.controller_handle = Some(thread::spawn(move || {
+            while controller_alive.load(Ordering::SeqCst) {
+                {
+                    let mut controller = controller.write().unwrap();
+
+                    controller.update((update_time as f32) / 1000.);
                 }
-            }
 
-            std::thread::sleep(std::time::Duration::from_millis(transmit_time));
-        });
-        todo!("Fix this");
+                thread::sleep(std::time::Duration::from_millis(update_time));
+            }
+        }));
     }
 
     fn exit(&mut self) {
+        self.thread_alive.store(false, Ordering::SeqCst);
+        self.transmit_handle
+            .take()
+            .expect("Called stop on non_running thread")
+            .join()
+            .expect("Could not join spawned thread");
+
+        self.controller_handle
+            .take()
+            .expect("Called stop on non_running thread")
+            .join()
+            .expect("Could not join spawned thread");
+
         self.exit = true;
-    }
-
-    fn increment_counter(&mut self) {
-        // self.counter += 1;
-    }
-
-    fn decrement_counter(&mut self) {
-        // self.counter -= 1;
     }
 }
 
@@ -121,9 +158,9 @@ impl Widget for &App {
     fn render(self, area: Rect, buf: &mut Buffer) {
         let title = Line::from(" Counter App Tutorial ".bold());
         let instructions = Line::from(vec![
-            " Decrement ".into(),
+            " Previous Effect ".into(),
             "<Left>".blue().bold(),
-            " Increment ".into(),
+            " Next Effect ".into(),
             "<Right>".blue().bold(),
             " Quit ".into(),
             "<Q> ".blue().bold(),
@@ -133,17 +170,14 @@ impl Widget for &App {
             .title_bottom(instructions.centered())
             .border_set(border::THICK);
 
-        let value = if let Ok(controller) = self.controller.lock() {
-            controller.get_num_pixels()
-        } else {
-            0
-        };
+        let controller = self.controller.read().unwrap();
+        let cur_eff = controller.get_current_effect();
+        let str = cur_eff.to_string();
 
-        let counter_text = Text::from(vec![Line::from(vec![
-            "Value: ".into(),
-            value.to_string().yellow(),
-            // self.counter.to_string().yellow(),
-        ])]);
+        let counter_text = Text::from(vec![
+            Line::from(vec!["Current Effect:".into()]),
+            Line::from(vec![str.into()]),
+        ]);
 
         Paragraph::new(counter_text)
             .centered()
