@@ -16,11 +16,11 @@ impl Effect {
 
     pub fn default_plane() -> Effect {
         Effect::Plane(
-            Vec3::new(0., 0., 0.),
+            Vec3::new(0., 30., 0.),
             Vec3::new(0., 1., 0.),
             Colour::new(0, 0, 0),
             Colour::new(255, 255, 255),
-            30.,
+            60.,
         )
     }
 
