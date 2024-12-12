@@ -1,10 +1,11 @@
 import numpy as np
 from PIL import Image
 import matplotlib.pyplot as plt
+import math
 
 COLOUR_THRESHOLD = 250
 SIZE_THRESHOLD = 1
-LED_COUNT = 10
+LED_COUNT = 300
 
 ignore_list = set([7])
 
@@ -14,7 +15,11 @@ def get_position(image_index):
 
     for i, d in enumerate(directions):
         filename = f"Output/{d}/image{image_index}.png"
-        im = Image.open(filename)
+        try:
+            im = Image.open(filename)
+        except:
+            continue
+
         img = im.load()
 
         (width, height) = im.size
@@ -52,12 +57,19 @@ def get_position(image_index):
         else:
             centers.append((None, None, None))
 
-    print(f"{image_index}: {centers}")
 
     true_x = np.mean([p[0] for i, p in enumerate(centers) if i % 2 == 0 and not p[0] is None])
     true_y = height - np.mean([p[1] for p in centers if not p[1] is None])
     true_z = np.mean([p[2] for i, p in enumerate(centers) if i % 2 == 1 and not p[2] is None])
 
+    if true_x is None or math.isnan(true_x):
+        true_x = 0
+    if true_y is None or math.isnan(true_y):
+        true_y = 0
+    if true_z is None or math.isnan(true_z):
+        true_z = 0
+
+    print(f"{image_index}: {centers} : {true_x}, {true_y}, {true_z}")
     print(f"Finished {image_index}")
     return (true_x, true_y, true_z)
 
