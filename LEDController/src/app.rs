@@ -19,8 +19,10 @@ use std::sync::{
     Arc, RwLock,
 };
 use std::thread;
+use std::time::{Duration, Instant};
 
-use crate::colour::Colour;
+// use crate::colour::Colour;
+use crate::effect::Effect;
 use crate::led_controller::PixelController;
 
 #[derive(Debug)]
@@ -61,9 +63,16 @@ impl App {
 
     pub fn run(&mut self, terminal: &mut DefaultTerminal) -> io::Result<()> {
         self.start_transmit_thread();
+        let tick_rate = Duration::from_millis(self.update_ms);
+        let mut last_tick = Instant::now();
+
         while !self.exit {
             terminal.draw(|frame| self.draw(frame))?;
-            self.handle_events()?;
+
+            let timeout = tick_rate.saturating_sub(last_tick.elapsed());
+            if event::poll(timeout)? {
+                self.handle_events()?;
+            }
         }
         Ok(())
     }
@@ -107,12 +116,18 @@ impl App {
         let transmit_ms = self.update_ms;
 
         self.transmit_handle = Some(thread::spawn(move || {
+            let tick_rate = Duration::from_millis(transmit_ms);
+            let mut last_tick = Instant::now();
             while transmit_alive.load(Ordering::SeqCst) {
                 {
-                    let controller = transmit_controller.read().unwrap();
-                    let mut connection = transmit_conn.write().unwrap();
+                    if last_tick.elapsed() >= tick_rate {
+                        let controller = transmit_controller.read().unwrap();
+                        let mut connection = transmit_conn.write().unwrap();
 
-                    controller.transmit(&mut connection);
+                        controller.transmit(&mut connection);
+
+                        last_tick = Instant::now();
+                    }
                 }
                 thread::sleep(std::time::Duration::from_millis(transmit_ms));
             }
@@ -124,11 +139,18 @@ impl App {
         let update_time = self.update_ms;
 
         self.controller_handle = Some(thread::spawn(move || {
+            let tick_rate = Duration::from_millis(update_time);
+            let mut last_tick = Instant::now();
+
             while controller_alive.load(Ordering::SeqCst) {
                 {
-                    let mut controller = controller.write().unwrap();
+                    if last_tick.elapsed() >= tick_rate {
+                        let mut controller = controller.write().unwrap();
 
-                    controller.update((update_time as f32) / 1000.);
+                        controller.update((update_time as f32) / 1000.);
+
+                        last_tick = Instant::now();
+                    }
                 }
 
                 thread::sleep(std::time::Duration::from_millis(update_time));
@@ -165,18 +187,25 @@ impl Widget for &App {
             " Quit ".into(),
             "<Q> ".blue().bold(),
         ]);
+
         let block = Block::bordered()
             .title(title.centered())
             .title_bottom(instructions.centered())
             .border_set(border::THICK);
 
         let controller = self.controller.read().unwrap();
-        let cur_eff = controller.get_current_effect();
-        let str = cur_eff.to_string();
+        let current_effect = controller.get_current_effect();
+        let str = current_effect.to_string();
+
+        let effect_text = match current_effect {
+            Effect::MovingPlane(p, ..) => format!("{:.2}", p),
+            _ => "".to_string(),
+        };
 
         let counter_text = Text::from(vec![
             Line::from(vec!["Current Effect:".into()]),
             Line::from(vec![str.into()]),
+            Line::from(vec![effect_text.into()]),
         ]);
 
         Paragraph::new(counter_text)

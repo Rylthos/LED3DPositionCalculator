@@ -9,7 +9,7 @@ pub mod vec3;
 use crate::app::App;
 
 const NUM_PIXELS: usize = 300;
-const FPS_MS: u64 = 50; // 60 FPS
+const FPS_MS: u64 = 20; // 60 FPS
 
 fn main() -> io::Result<()> {
     let mut terminal = ratatui::init();

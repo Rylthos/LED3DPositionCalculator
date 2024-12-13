@@ -36,6 +36,8 @@ impl PixelController {
                 position: Vec3::new(0., 0., 0.),
             },
         );
+        controller.read_pixels_from_file("Output.pixels");
+
         controller
     }
 
@@ -102,7 +104,8 @@ impl PixelController {
         match self.effect {
             Effect::SolidColour(c) => self.solid_colour(c),
             Effect::Plane(p, n, c1, c2, d) => self.plane(p, n, c1, c2, d),
-            _ => (),
+            Effect::AbovePlane(p, n, c) => self.above_plane(p, n, c),
+            Effect::MovingPlane(p, n, c, d) => self.moving_plane(p, n, c, d, delta),
         }
     }
 
@@ -127,16 +130,48 @@ impl PixelController {
             let new_position = Vec3::sub(pixel.position, pos);
             let mut distance = Vec3::dot(new_position, normal).abs() / Vec3::mag(normal);
 
-            distance = if Vec3::dot(new_position, normal) < 0. {
-                distance * -1.
-            } else {
-                distance
-            };
+            if Vec3::dot(new_position, normal) < 0. {
+                pixel.colour = Colour::new(0, 0, 0);
+            }
 
             distance /= distance_coef;
             distance = ((distance + 1.) / 2.).clamp(0., 1.);
 
             pixel.colour = Colour::lerp(c1, c2, distance);
         }
+    }
+
+    fn above_plane(&mut self, pos: Vec3, normal: Vec3, c: Colour) {
+        for pixel in self.pixels.iter_mut() {
+            let new_position = Vec3::sub(pixel.position, pos);
+
+            if Vec3::dot(new_position, normal) < 0. {
+                pixel.colour = Colour::new(0, 0, 0);
+            } else {
+                pixel.colour = c;
+            }
+        }
+    }
+
+    fn moving_plane(&mut self, pos: Vec3, normal: Vec3, c: Colour, norm_mult: f32, delta: f32) {
+        let direction_normal = Vec3::mul_scalar(normal, norm_mult);
+        self.above_plane(pos, direction_normal, c);
+
+        let movement_speed = 50.;
+        let movement = movement_speed * delta;
+        let mut new_pos = Vec3::new(
+            pos.x + normal.x * movement,
+            pos.y + normal.y * movement,
+            pos.z + normal.z * movement,
+        );
+
+        let (normal, direction) = if new_pos.y > 410. || new_pos.y < 0. {
+            new_pos = Vec3::clamp_scalar(new_pos, 0., 410.);
+            (Vec3::mul_scalar(normal, -1.), norm_mult * -1.)
+        } else {
+            (normal, norm_mult)
+        };
+
+        self.effect = Effect::MovingPlane(new_pos, normal, c, direction);
     }
 }
