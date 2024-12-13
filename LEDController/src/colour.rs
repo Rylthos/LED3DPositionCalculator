@@ -1,3 +1,5 @@
+use std::fmt;
+
 #[derive(Copy, Clone, Debug)]
 pub struct Colour {
     pub r: u8,
@@ -23,5 +25,11 @@ impl Colour {
             .clamp(0., 255.)
             .floor() as u8;
         Colour { r, g, b }
+    }
+}
+
+impl std::fmt::Display for Colour {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{} {} {}", self.r, self.g, self.b)
     }
 }

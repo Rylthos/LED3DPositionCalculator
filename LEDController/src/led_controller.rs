@@ -10,10 +10,18 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
 
+use std::fmt;
+
 #[derive(Copy, Clone, Debug)]
 struct Pixel {
     colour: Colour,
     position: Vec3,
+}
+
+impl std::fmt::Display for Pixel {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{} | {}", self.position, self.colour)
+    }
 }
 
 #[derive(Debug)]
@@ -72,7 +80,7 @@ impl PixelController {
             panic!("Couldn't read {}", file_name);
         }
 
-        let parse_position = Regex::new(r"(\d+): ([0-9.]+) ([0-9.]+) ([0-9.]+)").unwrap();
+        let parse_position = Regex::new(r"(\d+): (-?[0-9.]+) (-?[0-9.]+) (-?[0-9.]+)").unwrap();
 
         for line in s.split("\n") {
             if line.is_empty() {
@@ -142,10 +150,11 @@ impl PixelController {
     }
 
     fn above_plane(&mut self, pos: Vec3, normal: Vec3, c: Colour) {
-        for pixel in self.pixels.iter_mut() {
+        for (id, pixel) in (0..).zip(self.pixels.iter_mut()) {
             let new_position = Vec3::sub(pixel.position, pos);
 
             if Vec3::dot(new_position, normal) < 0. {
+                eprintln!("{id}: {pixel}");
                 pixel.colour = Colour::new(0, 0, 0);
             } else {
                 pixel.colour = c;

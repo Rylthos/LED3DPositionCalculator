@@ -8,6 +8,8 @@ with open("Output.pixels", "r") as file:
 
 data = [re.findall(r'(\d+): (-?\d+.\d+) (-?\d+.\d+) (-?\d+.\d+)', line) for line in data]
 
+for p in data:
+    print(p[0])
 xs = np.array([float(p[0][1]) for p in data])
 ys = np.array([float(p[0][2]) for p in data])
 zs = np.array([float(p[0][3]) for p in data])
