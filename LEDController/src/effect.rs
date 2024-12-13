@@ -1,46 +1,32 @@
-use crate::colour::Colour;
+use crate::colour::*;
 use crate::vec3::Vec3;
 
 #[derive(Debug, Clone, Copy)]
 pub enum Effect {
     SolidColour(Colour),
-    Plane(Vec3, Vec3, Colour, Colour, f32),
-    AbovePlane(Vec3, Vec3, Colour),
-    MovingPlane(Vec3, Vec3, Colour, f32),
+    MovingPlane(Vec3, Vec3, Colour, Colour, f32),
+    RainbowPlane(Vec3),
 }
 
-const NUM_EFFECTS: i32 = 4;
+const NUM_EFFECTS: i32 = 3;
 
 impl Effect {
     pub fn default_solid() -> Effect {
-        Effect::SolidColour(Colour::new(0, 255, 255))
-    }
-
-    pub fn default_plane() -> Effect {
-        Effect::Plane(
-            Vec3::new(0., 30., 0.),
-            Vec3::new(0., 1., 0.),
-            Colour::new(0, 0, 0),
-            Colour::new(255, 255, 255),
-            60.,
-        )
-    }
-
-    pub fn default_above_plane() -> Effect {
-        Effect::AbovePlane(
-            Vec3::new(0., 100., 0.),
-            Vec3::new(0., 1., 0.),
-            Colour::new(255, 255, 255),
-        )
+        Effect::SolidColour(CYAN)
     }
 
     pub fn default_moving_plane() -> Effect {
         Effect::MovingPlane(
             Vec3::new(0., 0., 0.),
             Vec3::new(0., 1., 0.),
-            Colour::new(255, 255, 255),
+            WHITE,
+            GREEN,
             1.,
         )
+    }
+
+    pub fn default_rainbow_plane() -> Effect {
+        Effect::RainbowPlane(Vec3::new(360., 0., 0.))
     }
 
     pub fn change_effect(effect: Effect, offset: i32) -> Effect {
@@ -58,18 +44,16 @@ impl Effect {
     pub fn effect_to_id(effect: Effect) -> usize {
         match effect {
             Effect::SolidColour(..) => 0,
-            Effect::Plane(..) => 1,
-            Effect::AbovePlane(..) => 2,
-            Effect::MovingPlane(..) => 3,
+            Effect::MovingPlane(..) => 1,
+            Effect::RainbowPlane(..) => 2,
         }
     }
 
     pub fn id_to_effect(effect_id: usize) -> Effect {
         match effect_id {
             0 => Effect::default_solid(),
-            1 => Effect::default_plane(),
-            2 => Effect::default_above_plane(),
-            3 => Effect::default_moving_plane(),
+            1 => Effect::default_moving_plane(),
+            2 => Effect::default_rainbow_plane(),
             _ => panic!("Undefined ID"),
         }
     }
@@ -77,9 +61,8 @@ impl Effect {
     pub fn to_string(&self) -> &str {
         match self {
             Effect::SolidColour(..) => "Solid Colour",
-            Effect::Plane(..) => "Stationary Plane",
-            Effect::AbovePlane(..) => "Above Plane",
             Effect::MovingPlane(..) => "Moving Plane",
+            Effect::RainbowPlane(..) => "Rainbow Plane",
         }
     }
 }

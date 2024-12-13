@@ -1,4 +1,4 @@
-use crate::colour::Colour;
+use crate::colour::*;
 use crate::effect::Effect;
 use crate::vec3::Vec3;
 
@@ -40,7 +40,7 @@ impl PixelController {
         controller.pixels.resize(
             num_pixels,
             Pixel {
-                colour: Colour { r: 0, g: 0, b: 0 },
+                colour: BLACK,
                 position: Vec3::new(0., 0., 0.),
             },
         );
@@ -111,18 +111,18 @@ impl PixelController {
     pub fn update(&mut self, delta: f32) {
         match self.effect {
             Effect::SolidColour(c) => self.solid_colour(c),
-            Effect::Plane(p, n, c1, c2, d) => self.plane(p, n, c1, c2, d),
-            Effect::AbovePlane(p, n, c) => self.above_plane(p, n, c),
-            Effect::MovingPlane(p, n, c, d) => self.moving_plane(p, n, c, d, delta),
+            Effect::MovingPlane(p, n, c1, c2, d) => self.moving_plane(p, n, c1, c2, d, delta),
+            Effect::RainbowPlane(p) => self.rainbow_plane(p, delta),
         }
     }
 
     fn pixels_to_arr(&self) -> Vec<u8> {
         let mut pixel_values: Vec<u8> = Vec::new();
         for p in self.pixels.clone() {
-            pixel_values.push(p.colour.r);
-            pixel_values.push(p.colour.g);
-            pixel_values.push(p.colour.b);
+            let (r, g, b) = Colour::to_rgb(&p.colour);
+            pixel_values.push(r);
+            pixel_values.push(g);
+            pixel_values.push(b);
         }
         pixel_values
     }
@@ -138,10 +138,6 @@ impl PixelController {
             let new_position = Vec3::sub(pixel.position, pos);
             let mut distance = Vec3::dot(new_position, normal).abs() / Vec3::mag(normal);
 
-            if Vec3::dot(new_position, normal) < 0. {
-                pixel.colour = Colour::new(0, 0, 0);
-            }
-
             distance /= distance_coef;
             distance = ((distance + 1.) / 2.).clamp(0., 1.);
 
@@ -149,24 +145,19 @@ impl PixelController {
         }
     }
 
-    fn above_plane(&mut self, pos: Vec3, normal: Vec3, c: Colour) {
-        for (id, pixel) in (0..).zip(self.pixels.iter_mut()) {
-            let new_position = Vec3::sub(pixel.position, pos);
-
-            if Vec3::dot(new_position, normal) < 0. {
-                eprintln!("{id}: {pixel}");
-                pixel.colour = Colour::new(0, 0, 0);
-            } else {
-                pixel.colour = c;
-            }
-        }
-    }
-
-    fn moving_plane(&mut self, pos: Vec3, normal: Vec3, c: Colour, norm_mult: f32, delta: f32) {
+    fn moving_plane(
+        &mut self,
+        pos: Vec3,
+        normal: Vec3,
+        c1: Colour,
+        c2: Colour,
+        norm_mult: f32,
+        delta: f32,
+    ) {
         let direction_normal = Vec3::mul_scalar(normal, norm_mult);
-        self.above_plane(pos, direction_normal, c);
+        self.plane(pos, direction_normal, c1, c2, 100.);
 
-        let movement_speed = 50.;
+        let movement_speed = 100.;
         let movement = movement_speed * delta;
         let mut new_pos = Vec3::new(
             pos.x + normal.x * movement,
@@ -181,6 +172,32 @@ impl PixelController {
             (normal, norm_mult)
         };
 
-        self.effect = Effect::MovingPlane(new_pos, normal, c, direction);
+        self.effect = Effect::MovingPlane(new_pos, normal, c1, c2, direction);
+    }
+
+    fn rainbow_plane(&mut self, pos: Vec3, delta: f32) {
+        let normal = Vec3::new(0., 1., 0.);
+
+        let movement_speed = 100.;
+        let movement = movement_speed * delta;
+        let mut new_pos = Vec3::new(
+            pos.x + normal.x * movement,
+            pos.y + normal.y * movement,
+            pos.z + normal.z * movement,
+        );
+
+        new_pos.y = new_pos.y % 720. + 360.;
+
+        // if new_pos.y > 410. {
+        //     new_pos.y = 0.;
+        // }
+
+        for pixel in self.pixels.iter_mut() {
+            let new_position = Vec3::sub(pixel.position, pos);
+            let distance = Vec3::dot(new_position, normal).abs() / Vec3::mag(normal);
+            pixel.colour = Colour::new(distance, 1., 1.);
+        }
+
+        self.effect = Effect::RainbowPlane(new_pos);
     }
 }

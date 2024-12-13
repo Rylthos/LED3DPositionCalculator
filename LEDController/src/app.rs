@@ -73,6 +73,8 @@ impl App {
             if event::poll(timeout)? {
                 self.handle_events()?;
             }
+
+            last_tick = Instant::now();
         }
         Ok(())
     }
