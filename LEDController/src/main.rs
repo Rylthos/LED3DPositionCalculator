@@ -4,9 +4,11 @@ pub mod app;
 pub mod colour;
 pub mod effect;
 pub mod led_controller;
+pub mod pixel;
 pub mod vec3;
 
 use crate::app::App;
+// use crate::effect::effect_trait;
 
 const NUM_PIXELS: usize = 300;
 const FPS_MS: u64 = 20; // 60 FPS

@@ -1,4 +1,16 @@
+use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
+use ratatui::{
+    buffer::Buffer,
+    layout::{Constraint, Direction, Layout, Rect},
+    style::{Color, Style, Stylize},
+    symbols::border,
+    text::{Line, Span, Text},
+    widgets::{Block, Borders, Clear, List, ListItem, Paragraph, Wrap},
+    DefaultTerminal, Frame,
+};
+
 use crate::colour::*;
+use crate::pixel::Pixel;
 use crate::vec3::Vec3;
 
 #[derive(Debug, Clone, Copy)]
@@ -65,4 +77,36 @@ impl Effect {
             Effect::RainbowPlane(..) => "Rainbow Plane",
         }
     }
+
+    pub fn draw_settings(&self, frame: &mut Frame, layout: Rect) {
+        match self {
+            Effect::SolidColour(..) => self.draw_solid_colour(frame, layout),
+            Effect::MovingPlane(..) => self.draw_moving_plane(frame, layout),
+            Effect::RainbowPlane(..) => self.draw_rainbow_plane(frame, layout),
+        }
+    }
+
+    pub fn handle_key_input(&self, key_event: KeyEvent) {}
+
+    fn draw_solid_colour(&self, frame: &mut Frame, layout: Rect) {
+        let effect_block = Block::default()
+            .borders(Borders::ALL)
+            .border_set(border::THICK)
+            .style(Style::default());
+
+        let effect = Paragraph::new(vec![Line::from(Span::styled(
+            "Solid Colour",
+            Style::default().fg(Color::Magenta),
+        ))
+        .centered()])
+        .bold()
+        .centered()
+        .block(effect_block);
+
+        frame.render_widget(effect, layout);
+    }
+
+    fn draw_moving_plane(&self, frame: &mut Frame, layout: Rect) {}
+
+    fn draw_rainbow_plane(&self, frame: &mut Frame, layout: Rect) {}
 }

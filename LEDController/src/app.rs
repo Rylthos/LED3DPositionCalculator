@@ -21,11 +21,9 @@ use std::sync::{
 use std::thread;
 use std::time::{Duration, Instant};
 
-// use crate::colour::Colour;
-use crate::effect::Effect;
+use crate::effect::*;
 use crate::led_controller::PixelController;
 
-#[derive(Debug)]
 pub struct App {
     conn: Arc<RwLock<connection::DDPConnection>>,
     controller: Arc<RwLock<PixelController>>,
@@ -105,6 +103,13 @@ impl App {
             .style(Style::default());
 
         frame.render_widget(block, display[1]);
+
+        {
+            let controller = self.controller.read().unwrap();
+            let current_effect = controller.get_current_effect();
+
+            current_effect.draw(frame, display[1]);
+        }
     }
 
     fn draw_effect(&self, frame: &mut Frame, layout: Rect) {
@@ -238,7 +243,13 @@ impl App {
                 let new_enabled = !self.enabled.load(Ordering::SeqCst);
                 self.enabled.store(new_enabled, Ordering::SeqCst);
             }
-            _ => {}
+            _ => {
+                self.controller
+                    .write()
+                    .unwrap()
+                    .get_current_effect_mut()
+                    .handle_input(key_event);
+            }
         }
     }
 
