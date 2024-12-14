@@ -60,8 +60,8 @@ impl Effect {
 
     pub fn to_string(&self) -> &str {
         match self {
-            Effect::SolidColour(..) => "Solid Colour",
-            Effect::MovingPlane(..) => "Moving Plane",
+            Effect::SolidColour(..) => "Solid  Colour",
+            Effect::MovingPlane(..) => "Moving  Plane",
             Effect::RainbowPlane(..) => "Rainbow Plane",
         }
     }

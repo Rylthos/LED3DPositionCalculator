@@ -28,6 +28,7 @@ impl std::fmt::Display for Pixel {
 pub struct PixelController {
     pixels: Vec<Pixel>,
     effect: Effect,
+    max_brightness: f32,
 }
 
 impl PixelController {
@@ -35,6 +36,7 @@ impl PixelController {
         let mut controller = PixelController {
             pixels: Vec::new(),
             effect: Effect::default_solid(),
+            max_brightness: 0.2,
         };
 
         controller.pixels.resize(
@@ -55,6 +57,18 @@ impl PixelController {
 
     pub fn get_current_effect(&self) -> Effect {
         self.effect
+    }
+
+    pub fn increase_brightness(&mut self) {
+        self.max_brightness = (self.max_brightness + 0.05).clamp(0., 1.);
+    }
+
+    pub fn decrease_brightness(&mut self) {
+        self.max_brightness = (self.max_brightness - 0.05).clamp(0., 1.);
+    }
+
+    pub fn get_brightness(&self) -> f32 {
+        self.max_brightness
     }
 
     pub fn next_effect(&mut self) {
@@ -119,7 +133,9 @@ impl PixelController {
     fn pixels_to_arr(&self) -> Vec<u8> {
         let mut pixel_values: Vec<u8> = Vec::new();
         for p in self.pixels.clone() {
-            let (r, g, b) = Colour::to_rgb(&p.colour);
+            let mut colour = p.colour;
+            colour.v = colour.v.clamp(0., self.max_brightness);
+            let (r, g, b) = Colour::to_rgb(&colour);
             pixel_values.push(r);
             pixel_values.push(g);
             pixel_values.push(b);

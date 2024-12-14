@@ -6,11 +6,11 @@ use ddp_rs::protocol;
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
 use ratatui::{
     buffer::Buffer,
-    layout::Rect,
-    style::Stylize,
+    layout::{Constraint, Direction, Layout, Rect},
+    style::{Color, Style, Stylize},
     symbols::border,
-    text::{Line, Text},
-    widgets::{Block, Paragraph, Widget},
+    text::{Line, Span, Text},
+    widgets::{Block, Borders, Clear, List, ListItem, Paragraph, Wrap},
     DefaultTerminal, Frame,
 };
 
@@ -32,6 +32,7 @@ pub struct App {
     thread_alive: Arc<AtomicBool>,
     transmit_handle: Option<thread::JoinHandle<()>>,
     controller_handle: Option<thread::JoinHandle<()>>,
+    enabled: Arc<AtomicBool>,
     update_ms: u64,
     exit: bool,
 }
@@ -56,6 +57,7 @@ impl App {
             thread_alive: Arc::new(AtomicBool::new(false)),
             transmit_handle: None,
             controller_handle: None,
+            enabled: Arc::new(AtomicBool::new(true)),
             update_ms,
             exit: false,
         }
@@ -80,7 +82,127 @@ impl App {
     }
 
     fn draw(&self, frame: &mut Frame) {
-        frame.render_widget(self, frame.area());
+        let display = Layout::default()
+            .constraints([Constraint::Length(5), Constraint::Min(1)])
+            .split(frame.area());
+
+        let header = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([
+                Constraint::Percentage(25),
+                Constraint::Percentage(50),
+                Constraint::Percentage(25),
+            ])
+            .split(display[0]);
+
+        self.draw_effect(frame, header[0]);
+        self.draw_title(frame, header[1]);
+        self.draw_brightness(frame, header[2]);
+
+        let block = Block::default()
+            .borders(Borders::ALL)
+            .border_set(border::THICK)
+            .style(Style::default());
+
+        frame.render_widget(block, display[1]);
+    }
+
+    fn draw_effect(&self, frame: &mut Frame, layout: Rect) {
+        let controller = self.controller.read().unwrap();
+        let current_effect = controller.get_current_effect();
+        let current_effect_str = current_effect.to_string();
+
+        let effect_block = Block::default()
+            .borders(Borders::ALL)
+            .border_set(border::THICK)
+            .style(Style::default());
+
+        let effect = Paragraph::new(vec![
+            Line::from(Span::styled(
+                "Current Effect:",
+                Style::default().fg(Color::Green),
+            ))
+            .centered(),
+            Line::from(Span::styled(
+                current_effect_str,
+                Style::default().fg(Color::White),
+            ))
+            .centered(),
+            Line::from(vec![
+                Span::styled("<LEFT>", Style::default().fg(Color::Red)),
+                Span::raw("  "),
+                Span::styled("<RIGHT>", Style::default().fg(Color::Green)),
+            ])
+            .centered(),
+        ])
+        .bold()
+        .centered()
+        .block(effect_block);
+
+        frame.render_widget(effect, layout);
+    }
+
+    fn draw_title(&self, frame: &mut Frame, layout: Rect) {
+        let title_block = Block::default()
+            .borders(Borders::ALL)
+            .border_set(border::THICK)
+            .style(Style::default());
+
+        let title = Paragraph::new(vec![
+            Line::from(Span::styled(
+                " LED Controller ",
+                Style::default().fg(Color::Green),
+            )),
+            Line::from(Span::raw("")),
+            if self.enabled.load(Ordering::SeqCst) {
+                Line::from(Span::styled(
+                    "(e) Enabled ",
+                    Style::default().fg(Color::Green),
+                ))
+                .centered()
+            } else {
+                Line::from(Span::styled(
+                    "(e) Disabled",
+                    Style::default().fg(Color::Red),
+                ))
+                .centered()
+            },
+        ])
+        .bold()
+        .centered()
+        .block(title_block);
+
+        frame.render_widget(title, layout);
+    }
+
+    fn draw_brightness(&self, frame: &mut Frame, layout: Rect) {
+        let controller = self.controller.read().unwrap();
+
+        let brightness_block = Block::default()
+            .borders(Borders::ALL)
+            .border_set(border::THICK)
+            .style(Style::default());
+
+        let brightness_text = vec![
+            Line::from(Span::styled(
+                "Brightness",
+                Style::default().fg(Color::White),
+            )),
+            Line::from(format!("{:.2}", controller.get_brightness())),
+            Line::from(vec![
+                Span::raw("<"),
+                Span::styled("-", Style::default().fg(Color::Red)),
+                Span::raw("  "),
+                Span::styled("+", Style::default().fg(Color::Green)),
+                Span::raw(">"),
+            ]),
+        ];
+
+        let brightness = Paragraph::new(brightness_text)
+            .centered()
+            .block(brightness_block);
+
+        frame.render_widget(brightness, layout);
     }
 
     fn handle_events(&mut self) -> io::Result<()> {
@@ -104,6 +226,18 @@ impl App {
                 let mut controller = self.controller.write().unwrap();
                 controller.next_effect();
             }
+            KeyCode::Char('+') | KeyCode::Char('=') => {
+                let mut controller = self.controller.write().unwrap();
+                controller.increase_brightness();
+            }
+            KeyCode::Char('-') | KeyCode::Char('_') => {
+                let mut controller = self.controller.write().unwrap();
+                controller.decrease_brightness();
+            }
+            KeyCode::Char('e') => {
+                let new_enabled = !self.enabled.load(Ordering::SeqCst);
+                self.enabled.store(new_enabled, Ordering::SeqCst);
+            }
             _ => {}
         }
     }
@@ -114,6 +248,7 @@ impl App {
         let transmit_alive = self.thread_alive.clone();
         let transmit_controller = self.controller.clone();
         let transmit_conn = self.conn.clone();
+        let transmit_enabled = self.enabled.clone();
 
         let transmit_ms = self.update_ms;
 
@@ -123,6 +258,9 @@ impl App {
             while transmit_alive.load(Ordering::SeqCst) {
                 {
                     if last_tick.elapsed() >= tick_rate {
+                        if !transmit_enabled.load(Ordering::SeqCst) {
+                            continue;
+                        }
                         let controller = transmit_controller.read().unwrap();
                         let mut connection = transmit_conn.write().unwrap();
 
@@ -137,7 +275,7 @@ impl App {
 
         let controller_alive = self.thread_alive.clone();
         let controller = self.controller.clone();
-
+        let update_enabled = self.enabled.clone();
         let update_time = self.update_ms;
 
         self.controller_handle = Some(thread::spawn(move || {
@@ -147,6 +285,9 @@ impl App {
             while controller_alive.load(Ordering::SeqCst) {
                 {
                     if last_tick.elapsed() >= tick_rate {
+                        if !update_enabled.load(Ordering::SeqCst) {
+                            continue;
+                        }
                         let mut controller = controller.write().unwrap();
 
                         controller.update((update_time as f32) / 1000.);
@@ -175,44 +316,5 @@ impl App {
             .expect("Could not join spawned thread");
 
         self.exit = true;
-    }
-}
-
-impl Widget for &App {
-    fn render(self, area: Rect, buf: &mut Buffer) {
-        let title = Line::from(" Counter App Tutorial ".bold());
-        let instructions = Line::from(vec![
-            " Previous Effect ".into(),
-            "<Left>".blue().bold(),
-            " Next Effect ".into(),
-            "<Right>".blue().bold(),
-            " Quit ".into(),
-            "<Q> ".blue().bold(),
-        ]);
-
-        let block = Block::bordered()
-            .title(title.centered())
-            .title_bottom(instructions.centered())
-            .border_set(border::THICK);
-
-        let controller = self.controller.read().unwrap();
-        let current_effect = controller.get_current_effect();
-        let str = current_effect.to_string();
-
-        let effect_text = match current_effect {
-            Effect::MovingPlane(p, ..) => format!("{:.2}", p),
-            _ => "".to_string(),
-        };
-
-        let counter_text = Text::from(vec![
-            Line::from(vec!["Current Effect:".into()]),
-            Line::from(vec![str.into()]),
-            Line::from(vec![effect_text.into()]),
-        ]);
-
-        Paragraph::new(counter_text)
-            .centered()
-            .block(block)
-            .render(area, buf);
     }
 }
