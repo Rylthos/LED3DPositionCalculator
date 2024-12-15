@@ -18,7 +18,7 @@ use crate::vec3::Vec3;
 #[derive(Copy, Clone)]
 pub struct RainbowPlaneEffect {
     pos: Vec3,
-    multiplier: f32,
+    multiplier: u32,
     movement_speed: f32,
 }
 
@@ -26,8 +26,8 @@ impl RainbowPlaneEffect {
     pub fn default() -> RainbowPlaneEffect {
         RainbowPlaneEffect {
             pos: Vec3::new(0., 0., 0.),
-            multiplier: 2.,
-            movement_speed: 100.,
+            multiplier: 1,
+            movement_speed: 50.,
         }
     }
 }
@@ -56,12 +56,63 @@ impl EffectTrait for RainbowPlaneEffect {
 
         for pixel in pixels.iter_mut() {
             let new_position = Vec3::sub(pixel.position, self.pos);
-            let distance =
-                self.multiplier * Vec3::dot(new_position, normal).abs() / Vec3::mag(normal);
-            pixel.colour = Colour::new(distance, 1., 1.);
+            let distance = (self.multiplier as f32)
+                * (Vec3::dot(new_position, normal).abs() / Vec3::mag(normal));
+            pixel.colour = Colour::new(distance + 30., 1., 1.);
         }
     }
 
-    fn handle_input(&mut self, _event: KeyEvent) {}
-    fn draw(&self, _frame: &mut Frame, _layout: Rect) {}
+    fn handle_input(&mut self, event: KeyEvent) {
+        match event.code {
+            KeyCode::Char('I') => {
+                self.movement_speed = (self.movement_speed + 10.).clamp(0., 1000.)
+            }
+            KeyCode::Char('i') => self.movement_speed = (self.movement_speed + 5.).clamp(0., 1000.),
+            KeyCode::Char('J') => {
+                self.movement_speed = (self.movement_speed - 10.).clamp(0., 1000.)
+            }
+            KeyCode::Char('j') => self.movement_speed = (self.movement_speed - 5.).clamp(0., 1000.),
+            KeyCode::Up => self.multiplier = (self.multiplier + 1).clamp(1, 10),
+            KeyCode::Down => self.multiplier = (self.multiplier - 1).clamp(1, 10),
+            _ => {}
+        }
+    }
+
+    fn draw(&self, frame: &mut Frame, layout: Rect) {
+        let blocks = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([
+                Constraint::Percentage(33),
+                Constraint::Min(1),
+                Constraint::Percentage(33),
+            ])
+            .split(layout);
+
+        let block = Block::default()
+            .borders(Borders::ALL)
+            .style(Style::default());
+
+        let block_text = Paragraph::new(vec![
+            Line::from(vec![
+                Span::styled("J ", Style::default().fg(Color::Red)),
+                Span::styled(
+                    format!("Movement Speed: {:3.0}", self.movement_speed),
+                    Style::default().fg(Color::White),
+                ),
+                Span::styled(" I", Style::default().fg(Color::Green)),
+            ]),
+            Line::from(vec![
+                Span::styled("<down> ", Style::default().fg(Color::Red)),
+                Span::styled(
+                    format!("Multiplier: {:2}", self.multiplier),
+                    Style::default().fg(Color::White),
+                ),
+                Span::styled(" <up>", Style::default().fg(Color::Green)),
+            ]),
+        ])
+        .centered()
+        .block(block);
+
+        frame.render_widget(block_text, blocks[1]);
+    }
 }
