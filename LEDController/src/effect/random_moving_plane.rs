@@ -21,6 +21,7 @@ pub struct RandomMovingPlaneEffect {
     normal: Vec3,
     colour: Colour,
     movement_speed: f32,
+    decay: f32,
     distance: f32,
 }
 
@@ -31,6 +32,7 @@ impl RandomMovingPlaneEffect {
             normal: Vec3::new(0., 0., 0.),
             movement_speed: 90.,
             distance: 30.,
+            decay: 0.9,
             colour: WHITE,
         };
 
@@ -113,15 +115,31 @@ impl EffectTrait for RandomMovingPlaneEffect {
 
     fn render(&self, pixels: &mut Vec<Pixel>) {
         for pixel in pixels.iter_mut() {
-            if let Ok(distance) = self.should_be_coloured(pixel) {
-                let value = (self.distance - distance) / self.distance;
+            if let Ok(_distance) = self.should_be_coloured(pixel) {
+                // let direction = Vec3::sub(pixel.position, self.pos);
+
+                // let value = if Vec3::dot(direction, self.normal) >= 0. {
+                //     (self.distance - distance) / self.distance
+                // } else {
+                //     1.
+                // };
+
                 pixel.colour = Colour {
                     h: self.colour.h,
                     s: 1.,
-                    v: value,
+                    v: 1.,
                 };
             } else {
-                pixel.colour = BLACK;
+                let mut new_value = pixel.colour.v * self.decay;
+                if new_value < 0.1 {
+                    new_value = 0.;
+                };
+
+                pixel.colour = Colour {
+                    h: pixel.colour.h,
+                    s: pixel.colour.s,
+                    v: new_value,
+                };
             }
         }
     }
@@ -136,6 +154,10 @@ impl EffectTrait for RandomMovingPlaneEffect {
                 self.movement_speed = (self.movement_speed - 10.).clamp(0., 1000.)
             }
             KeyCode::Char('j') => self.movement_speed = (self.movement_speed - 5.).clamp(0., 1000.),
+
+            KeyCode::Char('n') => self.decay = (self.decay - 0.01).clamp(0., 1.),
+            KeyCode::Char('m') => self.decay = (self.decay + 0.01).clamp(0., 1.),
+
             KeyCode::Up => self.distance = (self.distance + 1.).clamp(1., 200.),
             KeyCode::Down => self.distance = (self.distance - 1.).clamp(1., 200.),
             _ => {}
@@ -172,6 +194,14 @@ impl EffectTrait for RandomMovingPlaneEffect {
                     Style::default().fg(Color::White),
                 ),
                 Span::styled(" <up>", Style::default().fg(Color::Green)),
+            ]),
+            Line::from(vec![
+                Span::styled("n ", Style::default().fg(Color::Red)),
+                Span::styled(
+                    format!("Decay: {:1.2}", self.decay),
+                    Style::default().fg(Color::White),
+                ),
+                Span::styled(" m", Style::default().fg(Color::Green)),
             ]),
         ])
         .centered()
