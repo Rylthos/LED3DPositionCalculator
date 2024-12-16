@@ -1,8 +1,5 @@
 use crate::colour::*;
-use crate::effect::{
-    effect_list::Effect, effect_trait::EffectTrait, rainbow_plane::RainbowPlaneEffect,
-    solid_colour::SolidColourEffect,
-};
+use crate::effect::{effect_list::Effect, solid_colour::SolidColourEffect};
 use crate::pixel::Pixel;
 use crate::vec3::Vec3;
 

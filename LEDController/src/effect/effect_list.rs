@@ -3,6 +3,7 @@ use ratatui::{layout::Rect, Frame};
 
 use crate::effect::effect_trait::EffectTrait;
 use crate::effect::rainbow_plane::RainbowPlaneEffect;
+use crate::effect::random_moving_plane::RandomMovingPlaneEffect;
 use crate::effect::solid_colour::SolidColourEffect;
 use crate::pixel::Pixel;
 
@@ -10,15 +11,17 @@ use crate::pixel::Pixel;
 pub enum Effect {
     SolidColour(SolidColourEffect),
     RainbowPlane(RainbowPlaneEffect),
+    RandomMovingPlane(RandomMovingPlaneEffect),
 }
 
-const NUM_EFFECTS: i32 = 2;
+const NUM_EFFECTS: i32 = 3;
 
 impl Effect {
     pub fn to_string(&self) -> &str {
         match self {
             Effect::SolidColour(_) => "Solid Colour",
-            Effect::RainbowPlane(_) => "Rainbow Colour",
+            Effect::RainbowPlane(_) => "Rainbow Plane",
+            Effect::RandomMovingPlane(_) => "Rainbow Moving Plane",
         }
     }
 
@@ -54,6 +57,7 @@ impl Effect {
         match self {
             Effect::SolidColour(e) => Box::new(*e) as Box<dyn EffectTrait>,
             Effect::RainbowPlane(e) => Box::new(*e) as Box<dyn EffectTrait>,
+            Effect::RandomMovingPlane(e) => Box::new(*e) as Box<dyn EffectTrait>,
         }
     }
 
@@ -61,6 +65,7 @@ impl Effect {
         match self {
             Effect::SolidColour(e) => e.as_trait_mut(),
             Effect::RainbowPlane(e) => e.as_trait_mut(),
+            Effect::RandomMovingPlane(e) => e.as_trait_mut(),
         }
     }
 
@@ -68,6 +73,7 @@ impl Effect {
         match effect {
             Effect::SolidColour(_) => 0,
             Effect::RainbowPlane(_) => 1,
+            Effect::RandomMovingPlane(_) => 2,
         }
     }
 
@@ -75,6 +81,7 @@ impl Effect {
         match effect_id {
             0 => Effect::SolidColour(SolidColourEffect::default()),
             1 => Effect::RainbowPlane(RainbowPlaneEffect::default()),
+            2 => Effect::RandomMovingPlane(RandomMovingPlaneEffect::default()),
             _ => panic!("Undefined ID"),
         }
     }

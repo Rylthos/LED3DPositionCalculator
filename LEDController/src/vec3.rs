@@ -16,8 +16,12 @@ impl Vec3 {
         a.x * b.x + a.y * b.y + a.z * b.z
     }
 
-    pub fn mag(a: Vec3) -> f32 {
+    pub fn mag_squared(a: Vec3) -> f32 {
         Vec3::dot(a, a)
+    }
+
+    pub fn mag(a: Vec3) -> f32 {
+        f32::sqrt(Vec3::mag_squared(a))
     }
 
     pub fn norm(a: Vec3) -> Vec3 {

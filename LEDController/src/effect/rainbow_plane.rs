@@ -1,16 +1,13 @@
-use crossterm::event::{KeyCode, KeyEvent, KeyEventKind};
+use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
-    buffer::Buffer,
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Style, Stylize},
-    symbols::border,
-    text::{Line, Span, Text},
-    widgets::{Block, Borders, Clear, List, ListItem, Paragraph, Wrap},
-    DefaultTerminal, Frame,
+    style::{Color, Style},
+    text::{Line, Span},
+    widgets::{Block, Borders, Paragraph},
+    Frame,
 };
 
 use crate::colour::*;
-use crate::effect::effect_list;
 use crate::effect::effect_trait::EffectTrait;
 use crate::pixel::Pixel;
 use crate::vec3::Vec3;
@@ -56,18 +53,20 @@ impl EffectTrait for RainbowPlaneEffect {
 
         for pixel in pixels.iter_mut() {
             let new_position = Vec3::sub(pixel.position, self.pos);
-            let distance = (self.multiplier as f32)
-                * (Vec3::dot(new_position, normal).abs() / Vec3::mag(normal));
+            let distance = f32::abs(
+                (self.multiplier as f32)
+                    * (Vec3::dot(new_position, normal).abs() / Vec3::mag(normal)),
+            );
             pixel.colour = Colour::new(distance + 30., 1., 1.);
         }
     }
 
     fn handle_input(&mut self, event: KeyEvent) {
         match event.code {
-            KeyCode::Char('I') => {
+            KeyCode::Char('K') => {
                 self.movement_speed = (self.movement_speed + 10.).clamp(0., 1000.)
             }
-            KeyCode::Char('i') => self.movement_speed = (self.movement_speed + 5.).clamp(0., 1000.),
+            KeyCode::Char('k') => self.movement_speed = (self.movement_speed + 5.).clamp(0., 1000.),
             KeyCode::Char('J') => {
                 self.movement_speed = (self.movement_speed - 10.).clamp(0., 1000.)
             }
@@ -99,7 +98,7 @@ impl EffectTrait for RainbowPlaneEffect {
                     format!("Movement Speed: {:3.0}", self.movement_speed),
                     Style::default().fg(Color::White),
                 ),
-                Span::styled(" I", Style::default().fg(Color::Green)),
+                Span::styled(" K", Style::default().fg(Color::Green)),
             ]),
             Line::from(vec![
                 Span::styled("<down> ", Style::default().fg(Color::Red)),
