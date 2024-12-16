@@ -115,15 +115,7 @@ impl EffectTrait for RandomMovingPlaneEffect {
 
     fn render(&self, pixels: &mut Vec<Pixel>) {
         for pixel in pixels.iter_mut() {
-            if let Ok(_distance) = self.should_be_coloured(pixel) {
-                // let direction = Vec3::sub(pixel.position, self.pos);
-
-                // let value = if Vec3::dot(direction, self.normal) >= 0. {
-                //     (self.distance - distance) / self.distance
-                // } else {
-                //     1.
-                // };
-
+            if let Ok(_) = self.should_be_coloured(pixel) {
                 pixel.colour = Colour {
                     h: self.colour.h,
                     s: 1.,

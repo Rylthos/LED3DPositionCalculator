@@ -8,8 +8,8 @@ use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Style, Stylize},
     symbols::border,
-    text::{Line, Span},
-    widgets::{Block, Borders, Paragraph},
+    text::{Line, Span, Text},
+    widgets::{Block, Borders, Clear, Paragraph},
     DefaultTerminal, Frame,
 };
 
@@ -22,6 +22,12 @@ use std::time::{Duration, Instant};
 
 use crate::led_controller::PixelController;
 
+#[derive(PartialEq)]
+enum CurrentScreen {
+    MainView,
+    Exiting,
+}
+
 pub struct App {
     conn: Arc<RwLock<connection::DDPConnection>>,
     controller: Arc<RwLock<PixelController>>,
@@ -30,6 +36,7 @@ pub struct App {
     controller_handle: Option<thread::JoinHandle<()>>,
     enabled: Arc<AtomicBool>,
     update_ms: u64,
+    current_screen: CurrentScreen,
     exit: bool,
 }
 
@@ -55,6 +62,7 @@ impl App {
             controller_handle: None,
             enabled: Arc::new(AtomicBool::new(true)),
             update_ms,
+            current_screen: CurrentScreen::MainView,
             exit: false,
         }
     }
@@ -107,6 +115,10 @@ impl App {
             let current_effect = controller.get_current_effect();
 
             current_effect.draw(frame, display[1]);
+        }
+
+        if self.current_screen == CurrentScreen::Exiting {
+            self.draw_exit(frame, display[1]);
         }
     }
 
@@ -208,6 +220,45 @@ impl App {
         frame.render_widget(brightness, layout);
     }
 
+    fn draw_exit(&self, frame: &mut Frame, layout: Rect) {
+        let percent_x = 40;
+        let percent_y = 30;
+        let middle_third = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([
+                Constraint::Percentage((100 - percent_x) / 2),
+                Constraint::Percentage(percent_x),
+                Constraint::Percentage((100 - percent_x) / 2),
+            ])
+            .split(layout)[1];
+
+        let center = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([
+                Constraint::Percentage((100 - percent_y) / 2),
+                Constraint::Percentage(percent_y),
+                Constraint::Percentage((100 - percent_y) / 2),
+            ])
+            .split(middle_third)[1];
+
+        frame.render_widget(Clear, center);
+
+        let block = Block::default()
+            .title(Line::from("y/N").centered())
+            .borders(Borders::ALL)
+            .style(Style::default());
+
+        let block_text = Text::styled(
+            "Are you sure you want to exit?",
+            Style::default().fg(Color::White),
+        )
+        .centered();
+
+        let paragraph = Paragraph::new(block_text).centered().block(block);
+
+        frame.render_widget(paragraph, center);
+    }
+
     fn handle_events(&mut self) -> io::Result<()> {
         match event::read()? {
             Event::Key(key_event) if key_event.kind == KeyEventKind::Press => {
@@ -219,35 +270,41 @@ impl App {
     }
 
     fn handle_key_event(&mut self, key_event: KeyEvent) {
-        match key_event.code {
-            KeyCode::Char('q') => self.exit(),
-            KeyCode::Left => {
-                let mut controller = self.controller.write().unwrap();
-                controller.prev_effect();
-            }
-            KeyCode::Right => {
-                let mut controller = self.controller.write().unwrap();
-                controller.next_effect();
-            }
-            KeyCode::Char('+') | KeyCode::Char('=') => {
-                let mut controller = self.controller.write().unwrap();
-                controller.increase_brightness();
-            }
-            KeyCode::Char('-') | KeyCode::Char('_') => {
-                let mut controller = self.controller.write().unwrap();
-                controller.decrease_brightness();
-            }
-            KeyCode::Char('e') => {
-                let new_enabled = !self.enabled.load(Ordering::SeqCst);
-                self.enabled.store(new_enabled, Ordering::SeqCst);
-            }
-            _ => {
-                self.controller
-                    .write()
-                    .unwrap()
-                    .get_current_effect_mut()
-                    .handle_input(key_event);
-            }
+        match self.current_screen {
+            CurrentScreen::Exiting => match key_event.code {
+                KeyCode::Char('q') | KeyCode::Char('y') | KeyCode::Char('Y') => self.exit(),
+                _ => self.current_screen = CurrentScreen::MainView,
+            },
+            CurrentScreen::MainView => match key_event.code {
+                KeyCode::Char('q') => self.current_screen = CurrentScreen::Exiting,
+                KeyCode::Left => {
+                    let mut controller = self.controller.write().unwrap();
+                    controller.prev_effect();
+                }
+                KeyCode::Right => {
+                    let mut controller = self.controller.write().unwrap();
+                    controller.next_effect();
+                }
+                KeyCode::Char('+') | KeyCode::Char('=') => {
+                    let mut controller = self.controller.write().unwrap();
+                    controller.increase_brightness();
+                }
+                KeyCode::Char('-') | KeyCode::Char('_') => {
+                    let mut controller = self.controller.write().unwrap();
+                    controller.decrease_brightness();
+                }
+                KeyCode::Char('e') => {
+                    let new_enabled = !self.enabled.load(Ordering::SeqCst);
+                    self.enabled.store(new_enabled, Ordering::SeqCst);
+                }
+                _ => {
+                    self.controller
+                        .write()
+                        .unwrap()
+                        .get_current_effect_mut()
+                        .handle_input(key_event);
+                }
+            },
         }
     }
 
