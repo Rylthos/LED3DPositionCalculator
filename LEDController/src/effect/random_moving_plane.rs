@@ -29,7 +29,7 @@ impl RandomMovingPlaneEffect {
         let mut eff = RandomMovingPlaneEffect {
             pos: Vec3::new(0., 0., 0.),
             normal: Vec3::new(0., 0., 0.),
-            movement_speed: 50.,
+            movement_speed: 90.,
             distance: 30.,
             colour: WHITE,
         };

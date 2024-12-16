@@ -2,6 +2,7 @@ use crossterm::event::KeyEvent;
 use ratatui::{layout::Rect, Frame};
 
 use crate::effect::effect_trait::EffectTrait;
+use crate::effect::expanding_circle::ExpandingCircleEffect;
 use crate::effect::rainbow_plane::RainbowPlaneEffect;
 use crate::effect::random_moving_plane::RandomMovingPlaneEffect;
 use crate::effect::solid_colour::SolidColourEffect;
@@ -12,9 +13,10 @@ pub enum Effect {
     SolidColour(SolidColourEffect),
     RainbowPlane(RainbowPlaneEffect),
     RandomMovingPlane(RandomMovingPlaneEffect),
+    ExpandingCircle(ExpandingCircleEffect),
 }
 
-const NUM_EFFECTS: i32 = 3;
+const NUM_EFFECTS: i32 = 4;
 
 impl Effect {
     pub fn to_string(&self) -> &str {
@@ -22,6 +24,7 @@ impl Effect {
             Effect::SolidColour(_) => "Solid Colour",
             Effect::RainbowPlane(_) => "Rainbow Plane",
             Effect::RandomMovingPlane(_) => "Rainbow Moving Plane",
+            Effect::ExpandingCircle(_) => "Expanding Circle",
         }
     }
 
@@ -58,6 +61,7 @@ impl Effect {
             Effect::SolidColour(e) => Box::new(*e) as Box<dyn EffectTrait>,
             Effect::RainbowPlane(e) => Box::new(*e) as Box<dyn EffectTrait>,
             Effect::RandomMovingPlane(e) => Box::new(*e) as Box<dyn EffectTrait>,
+            Effect::ExpandingCircle(e) => Box::new(*e) as Box<dyn EffectTrait>,
         }
     }
 
@@ -66,6 +70,7 @@ impl Effect {
             Effect::SolidColour(e) => e.as_trait_mut(),
             Effect::RainbowPlane(e) => e.as_trait_mut(),
             Effect::RandomMovingPlane(e) => e.as_trait_mut(),
+            Effect::ExpandingCircle(e) => e.as_trait_mut(),
         }
     }
 
@@ -74,6 +79,7 @@ impl Effect {
             Effect::SolidColour(_) => 0,
             Effect::RainbowPlane(_) => 1,
             Effect::RandomMovingPlane(_) => 2,
+            Effect::ExpandingCircle(_) => 3,
         }
     }
 
@@ -82,6 +88,7 @@ impl Effect {
             0 => Effect::SolidColour(SolidColourEffect::default()),
             1 => Effect::RainbowPlane(RainbowPlaneEffect::default()),
             2 => Effect::RandomMovingPlane(RandomMovingPlaneEffect::default()),
+            3 => Effect::ExpandingCircle(ExpandingCircleEffect::default()),
             _ => panic!("Undefined ID"),
         }
     }
