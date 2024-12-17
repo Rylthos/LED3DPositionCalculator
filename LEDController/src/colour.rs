@@ -95,6 +95,10 @@ impl Colour {
 
         (r.round() as u8, g.round() as u8, b.round() as u8)
     }
+
+    pub fn to_string(&self) -> String {
+        format!("{:1.0},{:1.2},{:1.2}", self.h, self.s, self.v)
+    }
 }
 
 impl std::fmt::Display for Colour {

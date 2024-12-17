@@ -7,6 +7,7 @@ use ratatui::{
     Frame,
 };
 
+use ini::Ini;
 use rand;
 
 use crate::colour::*;
@@ -56,6 +57,29 @@ impl ExpandingCircleEffect {
 impl EffectTrait for ExpandingCircleEffect {
     fn as_trait_mut(&mut self) -> &mut dyn EffectTrait {
         self
+    }
+
+    fn save_settings(&self) {
+        let mut config: Ini = Ini::new();
+        if let Ok(x) = Ini::load_from_file(CONFIG_NAME) {
+            config = x;
+        }
+
+        config
+            .with_section(Some("Effect.ExpandingCircle"))
+            .set("expansion_speed", format!("{:3.0}", self.expansion_speed));
+
+        config.write_to_file(CONFIG_NAME).unwrap();
+    }
+
+    fn read_settings(&mut self) {
+        if let Ok(config) = Ini::load_from_file(CONFIG_NAME) {
+            if let Some(section) = config.section(Some("Effect.ExpandingCircle")) {
+                if let Some(expansion_speed) = section.get("expansion_speed") {
+                    self.expansion_speed = expansion_speed.parse().unwrap();
+                }
+            }
+        }
     }
 
     fn update(&mut self, delta: f32, pixels: &Vec<Pixel>) {

@@ -9,6 +9,8 @@ use ratatui::{
 
 use rand;
 
+use ini::Ini;
+
 use crate::colour::*;
 use crate::effect::constants::*;
 use crate::effect::effect_trait::EffectTrait;
@@ -81,6 +83,39 @@ impl RandomMovingPlaneEffect {
 impl EffectTrait for RandomMovingPlaneEffect {
     fn as_trait_mut(&mut self) -> &mut dyn EffectTrait {
         self
+    }
+
+    fn save_settings(&self) {
+        let mut config: Ini = Ini::new();
+        if let Ok(x) = Ini::load_from_file(CONFIG_NAME) {
+            config = x;
+        }
+
+        config
+            .with_section(Some("Effect.RandomMovingPlane"))
+            .set("movement_speed", format!("{:3.0}", self.movement_speed))
+            .set("decay", format!("{:1.2}", self.decay))
+            .set("distance", format!("{:3.0}", self.distance));
+
+        config.write_to_file(CONFIG_NAME).unwrap();
+    }
+
+    fn read_settings(&mut self) {
+        if let Ok(config) = Ini::load_from_file(CONFIG_NAME) {
+            if let Some(section) = config.section(Some("Effect.RandomMovingPlane")) {
+                if let Some(movement_speed) = section.get("movement_speed") {
+                    self.movement_speed = movement_speed.parse().unwrap();
+                }
+
+                if let Some(decay) = section.get("decay") {
+                    self.decay = decay.parse().unwrap();
+                }
+
+                if let Some(distance) = section.get("distance") {
+                    self.distance = distance.parse().unwrap();
+                }
+            }
+        }
     }
 
     fn update(&mut self, delta: f32, pixels: &Vec<Pixel>) {

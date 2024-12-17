@@ -9,3 +9,5 @@ pub const WIDTH: f32 = MAX_X - MIN_X;
 pub const MIN_Z: f32 = -90.;
 pub const MAX_Z: f32 = 90.;
 pub const DEPTH: f32 = MAX_Z - MIN_Z;
+
+pub const CONFIG_NAME: &str = "conf.ini";

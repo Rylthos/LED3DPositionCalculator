@@ -6,6 +6,9 @@ use crate::pixel::Pixel;
 pub trait EffectTrait {
     fn as_trait_mut(&mut self) -> &mut dyn EffectTrait;
 
+    fn save_settings(&self);
+    fn read_settings(&mut self);
+
     fn update(&mut self, delta: f32, pixels: &Vec<Pixel>);
     fn render(&self, pixels: &mut Vec<Pixel>);
 

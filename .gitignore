@@ -6,3 +6,4 @@
 *.pixels
 
 LEDController/target/*
+LEDController/conf.ini

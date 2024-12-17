@@ -1,4 +1,4 @@
-use crossterm::event::KeyEvent;
+use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{layout::Rect, Frame};
 
 use crate::effect::effect_trait::EffectTrait;
@@ -28,6 +28,14 @@ impl Effect {
         }
     }
 
+    pub fn save_settings(&self) {
+        self.decompose().save_settings();
+    }
+
+    pub fn read_settings(&mut self) {
+        self.decompose_mut().read_settings();
+    }
+
     pub fn render(&self, pixels: &mut Vec<Pixel>) {
         self.decompose().render(pixels);
     }
@@ -37,7 +45,10 @@ impl Effect {
     }
 
     pub fn handle_input(&mut self, event: KeyEvent) {
-        self.decompose_mut().handle_input(event);
+        match event.code {
+            KeyCode::Char('r') => *self = Effect::default_effect(Effect::effect_to_id(*self)),
+            _ => self.decompose_mut().handle_input(event),
+        }
     }
 
     pub fn draw(&self, frame: &mut Frame, layout: Rect) {
@@ -53,6 +64,7 @@ impl Effect {
             new_id_unnormalized % (NUM_EFFECTS)
         };
 
+        self.save_settings();
         *self = Effect::id_to_effect(new_id);
     }
 
@@ -83,7 +95,7 @@ impl Effect {
         }
     }
 
-    pub fn id_to_effect(effect_id: i32) -> Effect {
+    pub fn default_effect(effect_id: i32) -> Effect {
         match effect_id {
             0 => Effect::SolidColour(SolidColourEffect::default()),
             1 => Effect::RainbowPlane(RainbowPlaneEffect::default()),
@@ -91,5 +103,11 @@ impl Effect {
             3 => Effect::ExpandingCircle(ExpandingCircleEffect::default()),
             _ => panic!("Undefined ID"),
         }
+    }
+
+    pub fn id_to_effect(effect_id: i32) -> Effect {
+        let mut effect = Effect::default_effect(effect_id);
+        effect.read_settings();
+        effect
     }
 }

@@ -7,8 +7,10 @@ use ratatui::{
     Frame,
 };
 
+use ini::Ini;
+
 use crate::colour::*;
-use crate::effect::effect_trait::EffectTrait;
+use crate::effect::{constants::CONFIG_NAME, effect_trait::EffectTrait};
 use crate::pixel::Pixel;
 use crate::vec3::Vec3;
 
@@ -32,6 +34,33 @@ impl RainbowPlaneEffect {
 impl EffectTrait for RainbowPlaneEffect {
     fn as_trait_mut(&mut self) -> &mut dyn EffectTrait {
         self
+    }
+
+    fn save_settings(&self) {
+        let mut config: Ini = Ini::new();
+        if let Ok(x) = Ini::load_from_file(CONFIG_NAME) {
+            config = x;
+        }
+
+        config
+            .with_section(Some("Effect.RainbowPlane"))
+            .set("multiplier", format!("{}", self.multiplier))
+            .set("movement_speed", format!("{:3.0}", self.movement_speed));
+
+        config.write_to_file(CONFIG_NAME).unwrap();
+    }
+
+    fn read_settings(&mut self) {
+        if let Ok(config) = Ini::load_from_file(CONFIG_NAME) {
+            if let Some(section) = config.section(Some("Effect.RainbowPlane")) {
+                if let Some(multiplier) = section.get("multiplier") {
+                    self.multiplier = multiplier.parse().unwrap();
+                }
+                if let Some(movement_speed) = section.get("movement_speed") {
+                    self.movement_speed = movement_speed.parse().unwrap();
+                }
+            }
+        }
     }
 
     fn update(&mut self, delta: f32, _pixels: &Vec<Pixel>) {

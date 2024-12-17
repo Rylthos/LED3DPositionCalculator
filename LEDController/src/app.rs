@@ -276,7 +276,7 @@ impl App {
                 _ => self.current_screen = CurrentScreen::MainView,
             },
             CurrentScreen::MainView => match key_event.code {
-                KeyCode::Char('q') => self.current_screen = CurrentScreen::Exiting,
+                KeyCode::Esc | KeyCode::Char('q') => self.current_screen = CurrentScreen::Exiting,
                 KeyCode::Left => {
                     let mut controller = self.controller.write().unwrap();
                     controller.prev_effect();
@@ -382,5 +382,7 @@ impl App {
             .expect("Could not join spawned thread");
 
         self.exit = true;
+
+        self.controller.read().unwrap().save_settings();
     }
 }

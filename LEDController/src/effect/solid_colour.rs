@@ -7,7 +7,10 @@ use ratatui::{
     Frame,
 };
 
+use ini::Ini;
+
 use crate::colour::*;
+use crate::effect::constants::*;
 use crate::effect::effect_trait::EffectTrait;
 use crate::pixel::Pixel;
 
@@ -25,6 +28,32 @@ impl SolidColourEffect {
 impl EffectTrait for SolidColourEffect {
     fn as_trait_mut(&mut self) -> &mut dyn EffectTrait {
         self
+    }
+
+    fn save_settings(&self) {
+        let mut config: Ini = Ini::new();
+        if let Ok(x) = Ini::load_from_file(CONFIG_NAME) {
+            config = x;
+        }
+
+        config
+            .with_section(Some("Effect.SolidColour"))
+            .set("colour", self.colour.to_string());
+
+        config.write_to_file(CONFIG_NAME).unwrap();
+    }
+
+    fn read_settings(&mut self) {
+        if let Ok(config) = Ini::load_from_file(CONFIG_NAME) {
+            if let Some(section) = config.section(Some("Effect.SolidColour")) {
+                if let Some(colour) = section.get("colour") {
+                    let values: Vec<f32> = colour.split(",").map(|v| v.parse().unwrap()).collect();
+                    self.colour.h = values[0];
+                    self.colour.s = values[1];
+                    self.colour.v = values[2];
+                }
+            }
+        }
     }
 
     fn update(&mut self, _delta: f32, _pixels: &Vec<Pixel>) {}

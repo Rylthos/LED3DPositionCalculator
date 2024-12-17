@@ -1,9 +1,10 @@
 use crate::colour::*;
-use crate::effect::{effect_list::Effect, solid_colour::SolidColourEffect};
+use crate::effect::{constants::CONFIG_NAME, effect_list::Effect};
 use crate::pixel::Pixel;
 use crate::vec3::Vec3;
 
 use ddp_rs::connection;
+use ini::Ini;
 
 use regex::Regex;
 
@@ -21,7 +22,7 @@ impl PixelController {
     pub fn new(num_pixels: usize) -> PixelController {
         let mut controller = PixelController {
             pixels: Vec::new(),
-            effect: Effect::SolidColour(SolidColourEffect::default()),
+            effect: Effect::id_to_effect(0),
             max_brightness: 0.2,
         };
 
@@ -33,6 +34,8 @@ impl PixelController {
             },
         );
         controller.read_pixels_from_file("Output.pixels");
+
+        controller.read_settings();
 
         controller
     }
@@ -114,6 +117,39 @@ impl PixelController {
     pub fn update(&mut self, delta: f32) {
         self.effect.render(&mut self.pixels);
         self.effect.update(delta, &self.pixels);
+    }
+
+    pub fn save_settings(&self) {
+        self.effect.save_settings();
+
+        let mut config: Ini = Ini::new();
+        if let Ok(x) = Ini::load_from_file(CONFIG_NAME) {
+            config = x;
+        }
+
+        config
+            .with_section(None::<String>)
+            .set(
+                "current_effect",
+                format!("{}", Effect::effect_to_id(self.effect)),
+            )
+            .set("brightness", format!("{:0.2}", self.max_brightness));
+
+        config.write_to_file(CONFIG_NAME).unwrap();
+    }
+
+    pub fn read_settings(&mut self) {
+        if let Ok(x) = Ini::load_from_file(CONFIG_NAME) {
+            if let Some(section) = x.section(None::<String>) {
+                if let Some(brightness) = section.get("brightness") {
+                    self.max_brightness = brightness.parse().unwrap();
+                }
+
+                if let Some(effect) = section.get("current_effect") {
+                    self.effect = Effect::id_to_effect(effect.parse().unwrap());
+                }
+            }
+        }
     }
 
     fn pixels_to_arr(&self) -> Vec<u8> {
